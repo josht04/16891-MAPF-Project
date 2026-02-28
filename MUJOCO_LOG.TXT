@@ -1,0 +1,12 @@
+Thu Feb 19 22:16:53 2026
+WARNING: mju_openResource: unknown file 'mujoco_menagerie/wonik_allgero/scene_left.xml'
+
+Thu Feb 19 22:17:12 2026
+WARNING: mju_openResource: unknown file 'mujoco_menagerie\wonik_allgero\scene_left.xml'
+
+Thu Feb 19 22:17:18 2026
+WARNING: mju_openResource: unknown file '.\mujoco_menagerie\wonik_allgero\scene_left.xml'
+
+Thu Feb 19 22:18:05 2026
+WARNING: mju_openResource: unknown file '.\mujoco_menagerie\wonik_allgero\scene_left.xml'
+
