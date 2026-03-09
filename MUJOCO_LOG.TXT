@@ -10,3 +10,6 @@ WARNING: mju_openResource: unknown file '.\mujoco_menagerie\wonik_allgero\scene_
 Thu Feb 19 22:18:05 2026
 WARNING: mju_openResource: unknown file '.\mujoco_menagerie\wonik_allgero\scene_left.xml'
 
+Mon Mar  9 15:06:48 2026
+WARNING: mju_openResource: unknown file '.\wonik_allegro\left_hand_ring.xml'
+

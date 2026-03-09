@@ -3,7 +3,7 @@ import mujoco.viewer
 import numpy as np
 
 # 1. Load your model
-model = mujoco.MjModel.from_xml_path(r'.\mujoco_menagerie\wonik_allegro\scene_left.xml')
+model = mujoco.MjModel.from_xml_path(r'.\wonik_allegro\scene_left.xml')
 data = mujoco.MjData(model)
 
 # --- ONE-TIME WRIST POSITIONING ---
@@ -16,6 +16,11 @@ mujoco.mj_forward(model, data)
 
 # 2. Start the Simulation
 with mujoco.viewer.launch_passive(model, data) as viewer:
+
+    # print([attr for attr in dir(mujoco.mjtVisFlag) if not attr.startswith('__')])
+    viewer.opt.flags[12] = True
+    viewer.opt.flags[2] = True
+    viewer.opt.sitegroup[:] = 1
     
     # Simple counter to create a waving/moving motion
     step_count = 0
@@ -26,7 +31,8 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         # Allegro hands usually have 16 actuators.
         
         # Example: Sinusoidal movement for all fingers
-        target_angle = 0.5 * np.sin(step_count * 0.01)
+        target_angle = 0
+        # 0.5 * np.sin(step_count * 0.01)
         
         # We skip the first 7 qpos values (the wrist) and target actuators
         # model.nu is the number of actuators (controls)
