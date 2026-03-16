@@ -124,8 +124,8 @@
   </asset>
 
   <worldbody>
-    <body name="palm" quat="0 1 0 1" childclass="allegro_left">
-      <freejoint/> <geom quat="1 -1 0 0" class="palm_visual" mesh="base_link_left"/>
+    <body name="palm" quat="0 1 0 1" childclass="allegro_left" mocap="true">
+      <geom quat="1 -1 0 0" class="palm_visual" mesh="base_link_left"/>
       <geom class="palm_collision"/>
       <!-- Ring finger -->
       <body name="rf_base" pos="0 0.0435 -0.001542" quat="0.999048 -0.0436194 0 0">

@@ -102,17 +102,36 @@ class AllegroHandController:
         print(f"Fingertips: {coords}", end='\r')
 
 # --- MAIN EXECUTION ---
-model = mujoco.MjModel.from_xml_path(r'.\wonik_allegro\left_hand_ring.xml')
+model = mujoco.MjModel.from_xml_path(r'.\wonik_allegro\left_hand_obstacle.xml')
 data = mujoco.MjData(model)
 controller = AllegroHandController(model, data)
 
 collided = False
 model.opt.gravity[:] = [0, 0, 0]
 
-path_file = f"ring_path.npy"
+# path_file = f"npy_paths/ring_path_wrist_move_obstacle.npy"
+# if os.path.exists(path_file):
+#     planned_path = np.load(path_file, allow_pickle=True)
+#     print(f"Loaded path with {len(planned_path)} steps.")
+# else:
+#     planned_path = None
+#     print("No path file found. Moving to manual control.")
+
+# wrist_path_file = f"npy_paths/wrist_path_wrist_move_obstacle.npy"
+# if os.path.exists(wrist_path_file):
+#     wrist_data = np.load(wrist_path_file, allow_pickle=True)
+#     print(f"Loaded wrist path with {len(wrist_data)} steps.")
+# else:
+#     wrist_data = None
+#     print("No wrist path file found. Moving to manual control.")
+
+path_file = f"npy_paths/ring_only_trajectory.npy"
 if os.path.exists(path_file):
-    planned_path = np.load(path_file, allow_pickle=True)
-    print(f"Loaded path with {len(planned_path)} steps.")
+    planned_path = np.load(path_file, allow_pickle=True).item()
+    print(planned_path["ring"])
+
+
+    print(f"Loaded path with {len(planned_path['ring'])} steps.")
 else:
     planned_path = None
     print("No path file found. Moving to manual control.")
@@ -121,22 +140,34 @@ current_step = 0
 last_step_time = 0
 step_interval = 0.1  # 0.1 seconds per step
 
-
+target_xyz = np.array([0.212, 0.00504814, 0.1304538])
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
+    
     # Set rendering flags for sites (Index 12)
     viewer.opt.flags[12] = True
     viewer.opt.sitegroup[:] = 1
     
+    def reset_simulation():
+        global current_step, last_step_time
+        current_step = 0
+        last_step_time = time.time()
+        mujoco.mj_resetData(model, data)
+        mujoco.mj_forward(model, data)
+        print("\n--- Path Reset ---")
+
+    # Keyboard callback
+    def key_callback(key):
+        if key == ord('R') or key == ord('r'):
+            reset_simulation()
+    
     # 1. Set wrist position and rotation (e.g., tilted 45 degrees)
-    
-    
     while viewer.is_running():
         try:
             
             # 2. Set individual angles (Example: curl first finger)
             # Order: ffa0, ffa1, ffa2, ffa3 ...
-            # controller.set_joint_angle("rfa0", 16.0) 
+            # controller.set_joint_angle("rfa0", 0.0) 
             # controller.set_joint_angle("rfa1", 58.0) 
             # controller.set_joint_angle("rfa2", 58.0)
             # controller.set_joint_angle("rfa3", 49.0)
@@ -146,26 +177,40 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             # controller.set_joint_angle("mfa3", 0.0)
 
             current_time = time.time()
-            controller.set_wrist_pose(pos=[0, 0, 0], euler_deg=[0, 0, 0])
+            controller.set_wrist_pose(pos=[0.2, -0.05, 0], euler_deg=[0, 0, 0])
+            controller.print_fingertip_coords()
         
             # 2. Play Path Logic
-            if planned_path is not None and current_step < len(planned_path):
-                # Check if it's time for the next step
+            if planned_path is not None and current_step < len(planned_path['ring']):
+                wrist_data = planned_path['wrist']
+                finger_data = planned_path['ring']
+                current_time = time.time()
+                
+                # 1. Update WRIST position based on current step
+                # wrist_data[step] contains ([x,y,z], [r,p,y])
+                actual_step = min(current_step, len(wrist_data)-1)
+                w_pos, w_euler = wrist_data[actual_step]
+                controller.set_wrist_pose(pos=w_pos, euler_deg=w_euler)
+
+                # 2. Update FINGERS based on timing interval
                 if current_time - last_step_time >= step_interval:
-                    target_angles = planned_path[current_step][1]
+                    target_angles = finger_data[current_step][1]
                     
-                    for i in range(8,12):
+                    for i in range(8, 12):
                         joint_name = controller.joint_names[i]
                         controller.set_joint_angle(joint_name, target_angles[i-8])
                     
                     current_step += 1
                     last_step_time = current_time
-                    print(f"Playing step {current_step}/{len(planned_path)}", end='\r')
-            pass
+                    print(f"Playing step {current_step}/{len(finger_data)}", end='\r')
+            else:
+                # OPTIONAL: Uncomment the line below for Automatic Looping
+                reset_simulation() 
+
             
         except ValueError as e:
             print(e)
-
+        
         mujoco.mj_step(model, data)
         
         # 3. Features
@@ -174,7 +219,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         #         collided = True
 
         controller.check_collisions()
-        # controller.print_fingertip_coords()
+        controller.print_fingertip_coords()
         
         viewer.sync()
 

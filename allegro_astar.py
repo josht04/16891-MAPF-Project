@@ -1,16 +1,25 @@
+from collections import defaultdict
+
 import mujoco
 import numpy as np
 import heapq
 from scipy.spatial.transform import Rotation as R
 
 class AllegroDynamicAStar:
-    def __init__(self, xml_path, finger_type, site_name, max_step_dist):
+    def __init__(self, xml_path, finger_type, site_name, max_step_dist, constraints=None):
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
         self.site_id = self.model.site(site_name).id
         self.mocap_id = self.model.body_mocapid[self.model.body('palm').id]
         self.max_step_dist = max_step_dist
         
+        self.constraints = defaultdict(set)
+
+        if constraints:
+            for constraint in constraints:
+                if constraint["finger"] == finger_type:
+                    self.constraints[constraint["timestep"]].add(tuple(constraint["joints"]))
+
         # Mapping for joint indices (assuming mocap palm, so joints start at 0)
         prefix = {"thumb": "th", "first": "ff", "middle": "mf", "ring": "rf"}[finger_type]
         self.joint_names = [f"{prefix}a{i}" for i in range(4)]
@@ -36,9 +45,29 @@ class AllegroDynamicAStar:
         mujoco.mj_forward(self.model, self.data)
 
     def is_valid(self):
-        return self.data.ncon == 0
+        if self.data.ncon == 0:
+            return True
+        
+        # Pre-fetch the floor's body ID once in __init__ to avoid lookups
+        # floor_id = self.model.body('floor').id
 
-    def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=50000):
+        for i in range(self.data.ncon):
+            contact = self.data.contact[i]
+            
+            # Get body IDs (integer comparison is faster than string comparison)
+            b1_id = self.model.geom_bodyid[contact.geom1]
+            b2_id = self.model.geom_bodyid[contact.geom2]
+            
+            # If either body is the floor (ID 0 is usually worldbody/floor), ignore it
+            if b1_id == 0 or b2_id == 0:
+                continue
+                
+            # Any other contact (now including the 0.01m margin) is a failure
+            return False
+            
+        return True
+
+    def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=5000000):
         # start_q: (q0, q1, q2, q3)
         # wrist_path: List of ((x,y,z), (r,p,y)) per step
         
@@ -71,8 +100,12 @@ class AllegroDynamicAStar:
 
             # Explore next time step (t + 1)
             next_t = t + 1
+            constraints = self.constraints.get(next_t)
             for move in moves:
                 next_q = tuple(curr_q[i] + move[i] for i in range(4))
+
+                if constraints is not None and next_q in constraints:
+                    continue # Discard this neighbor and try the next move
                 
                 # Fast limit check
                 if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1] for i in range(4)):
@@ -88,47 +121,70 @@ class AllegroDynamicAStar:
                         h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
                         heapq.heappush(pq, (next_t + h, next_t, next_node))
                         came_from[next_node] = (t, curr_q)
+        print("Max Iterations reached, no path found.")
         return None    
 
 # --- Main Configuration ---
-max_step_dict = {
+def generate_wrist_path(start_pos, end_pos, start_euler, end_euler, duration, dt=0.1):
+    steps = int(duration / dt)
+    path = []
+    
+    for i in range(steps + 1):
+        # Calculate interpolation factor (0.0 to 1.0)
+        t = i / steps
+        
+        # Linearly interpolate position: P = P0 + t * (P1 - P0)
+        current_pos = [
+            start_pos[0] + t * (end_pos[0] - start_pos[0]),
+            start_pos[1] + t * (end_pos[1] - start_pos[1]),
+            start_pos[2] + t * (end_pos[2] - start_pos[2])
+        ]
+        
+        # Linearly interpolate euler angles
+        current_euler = [
+            start_euler[0] + t * (end_euler[0] - start_euler[0]),
+            start_euler[1] + t * (end_euler[1] - start_euler[1]),
+            start_euler[2] + t * (end_euler[2] - start_euler[2])
+        ]
+        
+        path.append((current_pos, current_euler))
+    
+    return path
+
+MAX_STEP_DICT = {
     "thumb": 0.0013,
     "first": 0.00165,
     "middle": 0.00165,
     "ring": 0.00165,
 }
 
-xml_paths = {
+XML_PATHS = {
     "thumb": r'.\wonik_allegro\left_hand_thumb.xml',
     "first": r'.\wonik_allegro\left_hand_first.xml',
     "middle": r'.\wonik_allegro\left_hand_middle.xml',
-    "ring": r'.\wonik_allegro\left_hand_ring.xml'
+    "ring": r'.\wonik_allegro\left_hand_ring.xml',
+    "thumb_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_thumb_obstacle.xml',
+    "first_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_first_obstacle.xml',
+    "middle_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_middle_obstacle.xml',
+    "ring_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_ring_obstacle.xml',
 }
 
-site_names = {
+SITE_NAMES = {
     "thumb": "th_grasp",
     "first": "ff_grasp",
     "middle": "mf_grasp",
     "ring": "rf_grasp"
 }
 
-# Example: Planning for the Ring Finger
-finger = "ring"
-planner = AllegroDynamicAStar(
-    xml_path=xml_paths[finger],
-    finger_type=finger,
-    site_name=site_names[finger],
-    max_step_dist=max_step_dict[finger]
-)
-
-start_q = [0, 0, 0, 0]
-target_xyz = np.array([ 0.0722836 ,  0.06396464, -0.0054457 ])
-wrist_path = [([0, 0, 0], [0, 0, 0])]
-
-path = planner.plan(start_q, target_xyz, wrist_path)
-
-print(path)
-
-if path:
-    print(f"Path for {finger} found in {len(path)} time steps.")
-    np.save(f"{finger}_path.npy", path)
+# # Example: Planning for the Ring Finger
+# finger = "ring"
+# xml_finger = f"{finger}_obs" 
+# planner = AllegroDynamicAStar(
+#     xml_path=xml_paths[xml_finger],
+#     finger_type=finger,
+#     site_name=site_names[finger],
+#     max_step_dist=max_step_dict[finger],
+#     constraints=[{"finger": finger, "timestep": 10, "joints": (10, 10, 10, 10)},
+#                  {"finger": finger, "timestep": 53, "joints": (16, 53, 53, 53)},
+#                  {"finger": finger, "timestep": 58, "joints": (16, 58, 58, 49)}]
+# )
