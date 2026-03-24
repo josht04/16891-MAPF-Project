@@ -20,6 +20,13 @@ class AllegroHandController:
             "rfa0", "rfa1", "rfa2", "rfa3",
             "tha0", "tha1", "tha2", "tha3"
         ]
+
+        self.joint_names_read = [
+            "ffj0", "ffj1", "ffj2", "ffj3",
+            "mfj0", "mfj1", "mfj2", "mfj3",
+            "rfj0", "rfj1", "rfj2", "rfj3",
+            "thj0", "thj1", "thj2", "thj3"
+        ]
         
         # 2. LOOKUP TABLE WITH 2° SAFETY BUFFER
         self.limits = {}
@@ -92,17 +99,36 @@ class AllegroHandController:
         
     def print_fingertip_coords(self):
         """Prints global 3D coordinates of fingertip sites."""
-        # sites = ["ff_grasp", "mf_grasp", "rf_grasp", "th_grasp"]
-        sites = ["rf_grasp"]
+        sites = ["ff_grasp", "mf_grasp", "rf_grasp", "th_grasp"]
+        # sites = ["rf_grasp"]
         coords = {}
         for s in sites:
             sid = self.model.site(s).id
             pos = self.data.site_xpos[sid]
             coords[s] = pos.copy()
-        print(f"Fingertips: {coords}", end='\r')
+            print(f"{s}: {pos}", end=' \n ')
+
+        # print(f"Fingertips: {coords}", end='\r')
+
+    def print_joint_angles(self, degrees=True):
+        """Prints the current angles of all defined joints."""
+        angles = {}
+        for name in self.joint_names_read:
+            # Find the joint ID associated with the actuator/joint name
+            # Note: This assumes joint name matches actuator name or you can use mj_name2id
+            joint_id = self.model.joint(name).qposadr[0]
+            val = self.data.qpos[joint_id]
+            
+            if degrees:
+                angles[name] = np.rad2deg(val)
+            else:
+                angles[name] = val
+        
+        # Format printing for readability
+        print(" | ".join([f"{k}: {v:6.1f}°" for k, v in angles.items()]), end='\r')
 
 # --- MAIN EXECUTION ---
-model = mujoco.MjModel.from_xml_path(r'.\wonik_allegro\left_hand_obstacle.xml')
+model = mujoco.MjModel.from_xml_path(r'.\wonik_allegro\doorknob\left_hand_doorknob.xml')
 data = mujoco.MjData(model)
 controller = AllegroHandController(model, data)
 
@@ -167,45 +193,72 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             
             # 2. Set individual angles (Example: curl first finger)
             # Order: ffa0, ffa1, ffa2, ffa3 ...
-            # controller.set_joint_angle("rfa0", 0.0) 
-            # controller.set_joint_angle("rfa1", 58.0) 
-            # controller.set_joint_angle("rfa2", 58.0)
-            # controller.set_joint_angle("rfa3", 49.0)
-            # controller.set_joint_angle("mfa0", -20.0) 
+            # controller.set_joint_angle("ffa0", 10.0) 
+            # controller.set_joint_angle("ffa1", 90.0) 
+            # controller.set_joint_angle("ffa2", 95.0)
+            # controller.set_joint_angle("ffa3", 0.0)
+            # controller.set_joint_angle("mfa0", 0.0) 
             # controller.set_joint_angle("mfa1", 90.0) 
-            # controller.set_joint_angle("mfa2", 90.0)
+            # controller.set_joint_angle("mfa2", 95.0)
             # controller.set_joint_angle("mfa3", 0.0)
+            # controller.set_joint_angle("rfa0", 0.0) 
+            # controller.set_joint_angle("rfa1", 90.0)
+            # controller.set_joint_angle("rfa2", 95.0) 
+            # controller.set_joint_angle("rfa3", 0.0)
+            # controller.set_joint_angle("tha0", 20.0) 
+            # controller.set_joint_angle("tha1", 64.0)
+            # controller.set_joint_angle("tha2", 75.0) 
+            # controller.set_joint_angle("tha3", 35.0)
+
+            controller.set_joint_angle("ffa0", 8.0) 
+            controller.set_joint_angle("ffa1", 13.0) 
+            controller.set_joint_angle("ffa2", 60.0)
+            controller.set_joint_angle("ffa3", 70.0)
+            controller.set_joint_angle("mfa0", 0.0) 
+            controller.set_joint_angle("mfa1", 12.0) 
+            controller.set_joint_angle("mfa2", 63.0)
+            controller.set_joint_angle("mfa3", 70.0)
+            controller.set_joint_angle("rfa0", -8.0) 
+            controller.set_joint_angle("rfa1", 12.0)
+            controller.set_joint_angle("rfa2", 60.0) 
+            controller.set_joint_angle("rfa3", 70.0)
+            controller.set_joint_angle("tha0", 18.0) 
+            controller.set_joint_angle("tha1", 64.0)
+            controller.set_joint_angle("tha2", 40.0) 
+            controller.set_joint_angle("tha3", 40.0)
+            
 
             current_time = time.time()
-            controller.set_wrist_pose(pos=[0.2, -0.05, 0], euler_deg=[0, 0, 0])
+            controller.set_wrist_pose(pos=[0.345, -0.05, 0.24], euler_deg=[0, 90, 0])
             controller.print_fingertip_coords()
+            # controller.print_joint_angles()
         
             # 2. Play Path Logic
-            if planned_path is not None and current_step < len(planned_path['ring']):
-                wrist_data = planned_path['wrist']
-                finger_data = planned_path['ring']
-                current_time = time.time()
+            # if planned_path is not None and current_step < len(planned_path['ring']):
+            #     wrist_data = planned_path['wrist']
+            #     finger_data = planned_path['ring']
+            #     current_time = time.time()
                 
-                # 1. Update WRIST position based on current step
-                # wrist_data[step] contains ([x,y,z], [r,p,y])
-                actual_step = min(current_step, len(wrist_data)-1)
-                w_pos, w_euler = wrist_data[actual_step]
-                controller.set_wrist_pose(pos=w_pos, euler_deg=w_euler)
+            #     # 1. Update WRIST position based on current step
+            #     # wrist_data[step] contains ([x,y,z], [r,p,y])
+            #     actual_step = min(current_step, len(wrist_data)-1)
+            #     w_pos, w_euler = wrist_data[actual_step]
+            #     controller.set_wrist_pose(pos=w_pos, euler_deg=w_euler)
 
-                # 2. Update FINGERS based on timing interval
-                if current_time - last_step_time >= step_interval:
-                    target_angles = finger_data[current_step][1]
+            #     # 2. Update FINGERS based on timing interval
+            #     if current_time - last_step_time >= step_interval:
+            #         target_angles = finger_data[current_step][1]
                     
-                    for i in range(8, 12):
-                        joint_name = controller.joint_names[i]
-                        controller.set_joint_angle(joint_name, target_angles[i-8])
+            #         for i in range(8, 12):
+            #             joint_name = controller.joint_names[i]
+            #             controller.set_joint_angle(joint_name, target_angles[i-8])
                     
-                    current_step += 1
-                    last_step_time = current_time
-                    print(f"Playing step {current_step}/{len(finger_data)}", end='\r')
-            else:
-                # OPTIONAL: Uncomment the line below for Automatic Looping
-                reset_simulation() 
+            #         current_step += 1
+            #         last_step_time = current_time
+            #         print(f"Playing step {current_step}/{len(finger_data)}", end='\r')
+            # else:
+            #     # OPTIONAL: Uncomment the line below for Automatic Looping
+            #     reset_simulation() 
 
             
         except ValueError as e:
@@ -218,8 +271,8 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         #     if controller.check_collisions():
         #         collided = True
 
-        controller.check_collisions()
-        controller.print_fingertip_coords()
+        # controller.check_collisions()
+        # controller.print_fingertip_coords()
         
         viewer.sync()
 

@@ -78,14 +78,14 @@ class AllegroHandController:
 # --- PLAYBACK EXECUTION ---
 
 # 1. Initialization
-model = mujoco.MjModel.from_xml_path(r'./wonik_allegro/obstacle_ex1/left_hand_obstacle.xml')
+model = mujoco.MjModel.from_xml_path(r'./wonik_allegro/doorknob/left_hand_doorknob.xml')
 model.opt.disableflags |= mujoco.mjtDisableBit.mjDSBL_CONTACT
 data = mujoco.MjData(model)
 controller = AllegroHandController(model, data)
 model.opt.gravity[:] = [0, 0, 0]
 
 # 2. Load Trajectory (Supports full hand or single finger files)
-path_file = "npy_paths/full_hand_trajectory_obstacle_ex1.npy"
+path_file = "npy_paths/doorknob_full_hand_trajectory.npy"
 if not os.path.exists(path_file):
     raise FileNotFoundError(f"Could not find {path_file}")
 
@@ -101,7 +101,7 @@ finger_map = {
 }
 
 current_step = 0
-step_interval = 0.05  # Faster playback
+step_interval = 0.01  # Faster playback
 last_step_time = time.time()
 
 with mujoco.viewer.launch_passive(model, data) as viewer:

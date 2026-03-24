@@ -135,7 +135,7 @@
               <body name="th_tip">
                 <geom class="thumbtip_visual"/>
                 <geom class="thumbtip_collision"/>
-                <site name="th_grasp" pos="0 -0.012 0.0403" size="0.001" rgba="1 0 0 1" group="4"/>
+                <site name="th_grasp" pos="0.012 0.0 0.0403" size="0.001" rgba="1 0 0 1" group="4"/>
               </body>
             </body>
           </body>

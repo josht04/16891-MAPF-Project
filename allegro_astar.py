@@ -48,30 +48,20 @@ class AllegroDynamicAStar:
         if self.data.ncon == 0:
             return True
         
-        # Pre-fetch the floor's body ID once in __init__ to avoid lookups
-        # floor_id = self.model.body('floor').id
-
         for i in range(self.data.ncon):
             contact = self.data.contact[i]
-            
-            # Get body IDs (integer comparison is faster than string comparison)
             b1_id = self.model.geom_bodyid[contact.geom1]
             b2_id = self.model.geom_bodyid[contact.geom2]
             
-            # If either body is the floor (ID 0 is usually worldbody/floor), ignore it
             if b1_id == 0 or b2_id == 0:
                 continue
                 
-            # Any other contact (now including the 0.01m margin) is a failure
             return False
             
         return True
 
     def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=5000000):
-        # start_q: (q0, q1, q2, q3)
-        # wrist_path: List of ((x,y,z), (r,p,y)) per step
-        
-        start_node = (0, tuple(start_q)) # (time_step, angles)
+        start_node = (0, tuple(start_q))
         self.set_context(0, wrist_path, start_q)
         
         pq = [(np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz)/self.max_step_dist, 0, start_node)]
@@ -85,12 +75,18 @@ class AllegroDynamicAStar:
             iters += 1
             f, g, (t, curr_q) = heapq.heappop(pq)
             
-            # Check if reached goal at current wrist position
-            self.set_context(t, wrist_path, curr_q)
+            # Use min() to stay at the final wrist position if t exceeds path length
+            wrist_idx = min(t, len(wrist_path) - 1)
+            self.set_context(wrist_idx, wrist_path, curr_q)
             curr_p = self.data.site_xpos[self.site_id].copy()
+            dist = np.linalg.norm(curr_p - goal_xyz)
             
-            if np.linalg.norm(curr_p - goal_xyz) < tolerance:
-                print(f"Path Found! Steps: {t}")
+            # --- Status Prints ---
+            if iters % 5000 == 0:
+                print(f"Iter: {iters} | Step: {t} | Dist: {dist:.4f}m", end='\n')
+
+            if dist < tolerance:
+                print(f"\nPath Found! Steps: {t} | Iters: {iters}")
                 path = []
                 curr = (t, curr_q)
                 while curr:
@@ -98,32 +94,33 @@ class AllegroDynamicAStar:
                     curr = came_from[curr]
                 return path[::-1]
 
-            # Explore next time step (t + 1)
             next_t = t + 1
             constraints = self.constraints.get(next_t)
             for move in moves:
                 next_q = tuple(curr_q[i] + move[i] for i in range(4))
 
                 if constraints is not None and next_q in constraints:
-                    continue # Discard this neighbor and try the next move
+                    continue 
                 
-                # Fast limit check
                 if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1] for i in range(4)):
                     continue
                 
                 next_node = (next_t, next_q)
                 if next_node not in g_score:
-                    # Update physics for the NEW time and NEW angles
-                    self.set_context(next_t, wrist_path, next_q)
+                    # Sync physics for the next potential state
+                    w_idx = min(next_t, len(wrist_path) - 1)
+                    self.set_context(w_idx, wrist_path, next_q)
                     
                     if self.is_valid():
                         g_score[next_node] = next_t
-                        h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
+                        weight = 5
+                        h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist * weight
                         heapq.heappush(pq, (next_t + h, next_t, next_node))
                         came_from[next_node] = (t, curr_q)
-        print("Max Iterations reached, no path found.")
-        return None    
-
+                        
+        print(f"\nFailed after {iters} iterations.")
+        return None
+    
 # --- Main Configuration ---
 def generate_wrist_path(start_pos, end_pos, start_euler, end_euler, duration, dt=0.1):
     steps = int(duration / dt)
@@ -167,6 +164,14 @@ XML_PATHS = {
     "first_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_first_obstacle.xml',
     "middle_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_middle_obstacle.xml',
     "ring_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_ring_obstacle.xml',
+    "thumb_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_thumb.xml',
+    "first_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_first.xml',
+    "middle_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_middle.xml',
+    "ring_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_ring.xml',
+    "thumb_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_thumb.xml',
+    "first_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_first.xml',
+    "middle_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_middle.xml',
+    "ring_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_ring.xml',
 }
 
 SITE_NAMES = {

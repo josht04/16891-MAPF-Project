@@ -25,3 +25,21 @@ WARNING: mju_openResource: unknown file '.\wonik_allegro\left_hand_obstacle.xml'
 Mon Mar 16 17:04:30 2026
 WARNING: mju_openResource: unknown file '.\wonik_allegro\left_hand_thumb_obstacle.xml'
 
+Mon Mar 23 14:21:21 2026
+ERROR: mjv_updateSceneState: m->nu changed
+
+Mon Mar 23 14:23:44 2026
+ERROR: mjv_updateSceneState: m->nu changed
+
+Mon Mar 23 14:57:46 2026
+ERROR: mjv_updateSceneState: m->nu changed
+
+Mon Mar 23 16:27:42 2026
+ERROR: mjv_updateSceneState: m->nu changed
+
+Mon Mar 23 16:30:57 2026
+ERROR: mjv_updateSceneState: m->nu changed
+
+Mon Mar 23 16:31:28 2026
+ERROR: mjv_updateSceneState: m->nu changed
+

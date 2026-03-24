@@ -1,0 +1,33 @@
+<mujoco model="left_hand_closed_grab scene">
+  <include file="../left_hand_first.xml"/>
+
+  <statistic center="0 0 0" extent="0.3"/>
+
+  <visual>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <quality shadowsize="8192"/>
+    <global azimuth="220" elevation="-40"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1"/>
+    <light pos="0.3 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" pos="0 0 -0.1" size="0 0 0.05" type="plane" material="groundplane" contype="0" conaffinity="0"/>
+    <site name="target_dot1" pos="0.46286335 -0.05693109 -0.02389508" size="0.015" rgba="1 0 0 1" />
+    <site name="target_dot2" pos="0.475353206  0 -0.0191418818" size="0.015" rgba="1 0 0 1" />
+    <site name="target_dot3" pos="0.46501551  0.05308591 -0.02152683" size="0.015" rgba="1 0 0 1" />
+    <site name="target_dot4" pos="0.35409264 -0.08491088 -0.02898133" size="0.015" rgba="1 0 0 1" />
+    <!-- <body name="object" pos="0.05 0.01 0.12"> -->
+    <body name="object" pos="0.4 0 -0.025">
+      <geom type="ellipsoid" size="0.075 0.1 0.05" rgba="0.5 0.7 0.5 1" condim="6" priority="1"
+        friction="0.7 0.002 0.002" margin="0.003" gap="0.001"/>
+    </body>
+  </worldbody>
+</mujoco>
