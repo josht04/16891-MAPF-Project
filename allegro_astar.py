@@ -120,7 +120,84 @@ class AllegroDynamicAStar:
                         
         print(f"\nFailed after {iters} iterations.")
         return None
-    
+
+    # def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=5000000):
+    #     # --- 1. Dynamic Budget Setup ---
+    #     budget = len(wrist_path) - 1
+    #     epsilon = 0.001  # Tiny weight for the tie-breaker
+        
+    #     start_node = (0, tuple(start_q))
+    #     self.set_context(0, wrist_path, start_q)
+        
+    #     # Initial distance and f_score
+    #     h_start = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
+    #     f_start = (epsilon * 0) + h_start # Initial t=0 is always within budget
+        
+    #     pq = [(f_start, 0, start_node)]
+    #     came_from = {start_node: None}
+    #     g_score = {start_node: 0}
+        
+    #     # Include (0,0,0,0) so the finger can 'wait' while the wrist moves
+    #     moves = [tuple(m) for m in np.array(np.meshgrid([-1,0,1],[-1,0,1],[-1,0,1],[-1,0,1])).T.reshape(-1,4)]
+
+    #     iters = 0
+    #     while pq and iters < max_iters:
+    #         iters += 1
+    #         f, g, (t, curr_q) = heapq.heappop(pq)
+            
+    #         wrist_idx = min(t, budget)
+    #         self.set_context(wrist_idx, wrist_path, curr_q)
+    #         curr_p = self.data.site_xpos[self.site_id].copy()
+    #         dist = np.linalg.norm(curr_p - goal_xyz)
+            
+    #         if iters % 10000 == 0:
+    #             print(f"Iter: {iters} | Step: {t} | Dist: {dist:.4f}m", end='\n')
+
+    #         if dist < tolerance:
+    #             print(f"\nPath Found! Steps: {t} | Iters: {iters}")
+    #             path = []
+    #             curr = (t, curr_q)
+    #             while curr:
+    #                 path.append(curr)
+    #                 curr = came_from[curr]
+    #             return path[::-1]
+
+    #         next_t = t + 1
+    #         constraints = self.constraints.get(next_t)
+            
+    #         for move in moves:
+    #             next_q = tuple(curr_q[i] + move[i] for i in range(4))
+
+    #             if constraints is not None and next_q in constraints:
+    #                 continue 
+                
+    #             if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1] for i in range(4)):
+    #                 continue
+                
+    #             next_node = (next_t, next_q)
+    #             if next_node not in g_score:
+    #                 w_idx = min(next_t, budget)
+    #                 self.set_context(w_idx, wrist_path, next_q)
+                    
+    #                 if self.is_valid():
+    #                     g_score[next_node] = next_t
+    #                     h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
+                        
+    #                     # --- 2. THE BIG BRAIN GEAR SHIFT ---
+    #                     if next_t <= budget:
+    #                         # Phase 1: Budgeted Greedy with tie-breaker
+    #                         f_next = (epsilon * next_t) + h
+    #                     else:
+    #                         # Phase 2: Optimal A* (penalizing every step after budget)
+    #                         # (epsilon * budget) maintains a smooth transition in the PQ
+    #                         f_next = (next_t - budget) + (epsilon * budget) + h
+                        
+    #                     heapq.heappush(pq, (f_next, next_t, next_node))
+    #                     came_from[next_node] = (t, curr_q)
+        
+    #     print(f"\nFailed after {iters} iterations.")
+    #     return None
+
 # --- Main Configuration ---
 def generate_wrist_path(start_pos, end_pos, start_euler, end_euler, duration, dt=0.1):
     steps = int(duration / dt)
