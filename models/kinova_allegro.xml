@@ -1,0 +1,380 @@
+<mujoco model="kinova_allegro">
+  <compiler angle="radian" autolimits="true"/>
+
+  <option integrator="implicitfast" cone="elliptic" impratio="10"/>
+
+  <!-- ==================== DEFAULTS ==================== -->
+  <default>
+    <!-- Kinova defaults -->
+    <default class="kinova_visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.75294 0.75294 0.75294 1"/>
+    </default>
+    <default class="kinova_collision">
+      <geom type="mesh" group="3" contype="1" conaffinity="1"/>
+    </default>
+    <default class="large_actuator">
+      <position kp="2000" kv="100" forcerange="-105 105"/>
+    </default>
+    <default class="small_actuator">
+      <position kp="500" kv="50" forcerange="-52 52"/>
+    </default>
+
+    <!-- Allegro defaults -->
+    <default class="allegro_right">
+      <joint axis="0 1 0" damping=".1"/>
+      <position kp="1"/>
+      <geom density="800"/>
+
+      <default class="allegro_visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" material="allegro_black"/>
+      </default>
+      <default class="allegro_collision">
+        <geom group="3" type="box" mass="0" contype="2" conaffinity="2"/>
+        <default class="palm_collision">
+          <geom size="0.0204 0.0565 0.0475" pos="-0.0093 0 -0.0475"/>
+        </default>
+        <default class="base_collision">
+          <geom size="0.0098 0.01375 0.0082" pos="0 0 0.0082"/>
+          <default class="thumb_base_collision">
+            <geom size="0.0179 0.017 0.02275" pos="-0.0179 0.009 0.0145"/>
+          </default>
+        </default>
+        <default class="proximal_collision">
+          <geom size="0.0098 0.01375 0.027" pos="0 0 0.027"/>
+          <default class="thumb_proximal_collision">
+            <geom size="0.0098 0.01375 0.00885" pos="0 0 0.00885"/>
+          </default>
+        </default>
+        <default class="medial_collision">
+          <geom size="0.0098 0.01375 0.0192" pos="0 0 0.0192"/>
+          <default class="thumb_medial_collision">
+            <geom size="0.0098 0.01375 0.0257" pos="0 0 0.0257"/>
+          </default>
+        </default>
+        <default class="distal_collision">
+          <geom size="0.0098 0.01375 0.008" pos="0 0 0.008"/>
+          <default class="thumb_distal_collision">
+            <geom size="0.0098 0.01375 0.0157" pos="0 0 0.0157"/>
+          </default>
+        </default>
+        <default class="fingertip_collision">
+          <geom type="capsule" size="0.012 0.01" pos="0 0 0.019"/>
+          <default class="thumbtip_collision">
+            <geom type="capsule" size="0.012 0.008" pos="0 0 0.035"/>
+          </default>
+        </default>
+      </default>
+
+      <default class="base">
+        <joint axis="0 0 1" range="-0.47 0.47"/>
+        <position ctrlrange="-0.47 0.47"/>
+      </default>
+      <default class="proximal">
+        <joint range="-0.196 1.61"/>
+        <position ctrlrange="-0.196 1.61"/>
+      </default>
+      <default class="medial">
+        <joint range="-0.174 1.709"/>
+        <position ctrlrange="-0.174 1.709"/>
+      </default>
+      <default class="distal">
+        <joint range="-0.227 1.618"/>
+        <position ctrlrange="-0.227 1.618"/>
+      </default>
+      <default class="thumb_base">
+        <joint axis="-1 0 0" range="0.263 1.396"/>
+        <position ctrlrange="0.263 1.396"/>
+      </default>
+      <default class="thumb_proximal">
+        <joint axis="0 0 1" range="-0.105 1.163"/>
+        <position ctrlrange="-0.105 1.163"/>
+      </default>
+      <default class="thumb_medial">
+        <joint range="-0.189 1.644"/>
+        <position ctrlrange="-0.189 1.644"/>
+      </default>
+      <default class="thumb_distal">
+        <joint range="-0.162 1.719"/>
+        <position ctrlrange="-0.162 1.719"/>
+      </default>
+    </default>
+
+    <!-- Obstacle defaults -->
+    <default class="obstacle">
+      <geom contype="4" conaffinity="7" rgba="0.6 0.15 0.15 0.6" group="0"/>
+    </default>
+  </default>
+
+  <!-- ==================== ASSETS ==================== -->
+  <asset>
+    <!-- Kinova meshes -->
+    <mesh name="base_link" file="assets/kinova/base_link.stl"/>
+    <mesh name="shoulder_link" file="assets/kinova/shoulder_link.stl"/>
+    <mesh name="half_arm_1_link" file="assets/kinova/half_arm_1_link.stl"/>
+    <mesh name="half_arm_2_link" file="assets/kinova/half_arm_2_link.stl"/>
+    <mesh name="forearm_link" file="assets/kinova/forearm_link.stl"/>
+    <mesh name="spherical_wrist_1_link" file="assets/kinova/spherical_wrist_1_link.stl"/>
+    <mesh name="spherical_wrist_2_link" file="assets/kinova/spherical_wrist_2_link.stl"/>
+    <mesh name="bracelet_with_vision_link" file="assets/kinova/bracelet_with_vision_link.stl"/>
+
+    <!-- Allegro meshes -->
+    <material name="allegro_black" rgba="0.2 0.2 0.2 1"/>
+    <material name="allegro_white" rgba="0.9 0.9 0.9 1"/>
+    <mesh name="allegro_base_link" file="assets/allegro/base_link.stl"/>
+    <mesh name="link_0.0" file="assets/allegro/link_0.0.stl"/>
+    <mesh name="link_1.0" file="assets/allegro/link_1.0.stl"/>
+    <mesh name="link_2.0" file="assets/allegro/link_2.0.stl"/>
+    <mesh name="link_3.0" file="assets/allegro/link_3.0.stl"/>
+    <mesh name="link_3.0_tip" file="assets/allegro/link_3.0_tip.stl"/>
+    <mesh name="link_12.0_right" file="assets/allegro/link_12.0_right.stl"/>
+    <mesh name="link_13.0" file="assets/allegro/link_13.0.stl"/>
+    <mesh name="link_14.0" file="assets/allegro/link_14.0.stl"/>
+    <mesh name="link_15.0" file="assets/allegro/link_15.0.stl"/>
+    <mesh name="link_15.0_tip" file="assets/allegro/link_15.0_tip.stl"/>
+  </asset>
+
+  <!-- ==================== KINEMATIC CHAIN ==================== -->
+  <worldbody>
+    <body name="base_link" pos="0 0 0.5">
+      <inertial pos="-0.000648 -0.000166 0.084487" quat="0.999294 0.00139618 -0.0118387 0.035636" mass="1.697"
+        diaginertia="0.00462407 0.00449437 0.00207755"/>
+      <geom class="kinova_visual" mesh="base_link"/>
+      <geom class="kinova_collision" mesh="base_link"/>
+
+      <body name="shoulder_link" pos="0 0 0.15643" quat="0 1 0 0">
+        <inertial pos="-2.3e-05 -0.010364 -0.07336" quat="0.707051 0.0451246 -0.0453544 0.704263" mass="1.3773"
+          diaginertia="0.00488868 0.00457 0.00135132"/>
+        <joint name="joint_1" range="-6.28318 6.28318"/>
+        <geom class="kinova_visual" mesh="shoulder_link"/>
+        <geom class="kinova_collision" mesh="shoulder_link"/>
+
+        <body name="half_arm_1_link" pos="0 0.005375 -0.12838" quat="1 1 0 0">
+          <inertial pos="-4.4e-05 -0.09958 -0.013278" quat="0.482348 0.516286 -0.516862 0.483366" mass="1.1636"
+            diaginertia="0.0113017 0.011088 0.00102532"/>
+          <joint name="joint_2" range="-2.2497 2.2497"/>
+          <geom class="kinova_visual" mesh="half_arm_1_link"/>
+          <geom class="kinova_collision" mesh="half_arm_1_link"/>
+
+          <body name="half_arm_2_link" pos="0 -0.21038 -0.006375" quat="1 -1 0 0">
+            <inertial pos="-4.4e-05 -0.006641 -0.117892" quat="0.706144 0.0213722 -0.0209128 0.707437" mass="1.1636"
+              diaginertia="0.0111633 0.010932 0.00100671"/>
+            <joint name="joint_3" range="-6.28318 6.28318"/>
+            <geom class="kinova_visual" mesh="half_arm_2_link"/>
+            <geom class="kinova_collision" mesh="half_arm_2_link"/>
+
+            <body name="forearm_link" pos="0 0.006375 -0.21038" quat="1 1 0 0">
+              <inertial pos="-1.8e-05 -0.075478 -0.015006" quat="0.483678 0.515961 -0.515859 0.483455" mass="0.9302"
+                diaginertia="0.00834839 0.008147 0.000598606"/>
+              <joint name="joint_4" range="-2.5796 2.5796"/>
+              <geom class="kinova_visual" mesh="forearm_link"/>
+              <geom class="kinova_collision" mesh="forearm_link"/>
+
+              <body name="spherical_wrist_1_link" pos="0 -0.20843 -0.006375" quat="1 -1 0 0">
+                <inertial pos="1e-06 -0.009432 -0.063883" quat="0.703558 0.0707492 -0.0707492 0.703558" mass="0.6781"
+                  diaginertia="0.00165901 0.001596 0.000346988"/>
+                <joint name="joint_5" range="-6.28318 6.28318"/>
+                <geom class="kinova_visual" mesh="spherical_wrist_1_link"/>
+                <geom class="kinova_collision" mesh="spherical_wrist_1_link"/>
+
+                <body name="spherical_wrist_2_link" pos="0 0.00017505 -0.10593" quat="1 1 0 0">
+                  <inertial pos="1e-06 -0.045483 -0.00965" quat="0.44426 0.550121 -0.550121 0.44426" mass="0.6781"
+                    diaginertia="0.00170087 0.001641 0.00035013"/>
+                  <joint name="joint_6" range="-2.0996 2.0996"/>
+                  <geom class="kinova_visual" mesh="spherical_wrist_2_link"/>
+                  <geom class="kinova_collision" mesh="spherical_wrist_2_link"/>
+
+                  <body name="bracelet_link" pos="0 -0.10593 -0.00017505" quat="1 -1 0 0">
+                    <inertial pos="0.000281 0.011402 -0.029798" quat="0.394358 0.596779 -0.577293 0.393789" mass="0.5"
+                      diaginertia="0.000657336 0.000587019 0.000320645"/>
+                    <joint name="joint_7" range="-6.28318 6.28318"/>
+                    <geom class="kinova_visual" mesh="bracelet_with_vision_link"/>
+                    <geom class="kinova_collision" mesh="bracelet_with_vision_link"/>
+                    <site name="pinch_site" pos="0 0 -0.061525" quat="0 1 0 0"/>
+
+                    <!-- ===== ALLEGRO HAND ATTACHED HERE ===== -->
+                    <!-- Offset from bracelet to palm mount point.
+                         The hand points "downward" along bracelet's -Z.
+                         Adjust this quat to orient the palm correctly. -->
+                    <body name="palm" pos="0.01 0 -0.161525" quat="0 1 0 0" childclass="allegro_right">
+                      <geom class="allegro_visual" mesh="allegro_base_link"/>
+                      <geom class="palm_collision"/>
+
+                      <!-- Index finger -->
+                      <body name="ff_base" pos="0 0.0435 -0.001542" quat="0.999048 -0.0436194 0 0">
+                        <joint name="ffj0" class="base"/>
+                        <geom class="allegro_visual" mesh="link_0.0"/>
+                        <geom class="base_collision"/>
+                        <body name="ff_proximal" pos="0 0 0.0164">
+                          <joint name="ffj1" class="proximal"/>
+                          <geom class="allegro_visual" mesh="link_1.0"/>
+                          <geom class="proximal_collision"/>
+                          <body name="ff_medial" pos="0 0 0.054">
+                            <joint name="ffj2" class="medial"/>
+                            <geom class="allegro_visual" mesh="link_2.0"/>
+                            <geom class="medial_collision"/>
+                            <body name="ff_distal" pos="0 0 0.0384">
+                              <joint name="ffj3" class="distal"/>
+                              <geom class="allegro_visual" mesh="link_3.0"/>
+                              <geom class="distal_collision"/>
+                              <body name="ff_tip">
+                                <geom class="allegro_visual" pos="0 0 0.0267" material="allegro_white" mesh="link_3.0_tip"/>
+                                <geom class="fingertip_collision"/>
+                                <site name="ff_grasp" pos="0 0 0.029" size="0.003" rgba="1 0 0 1"/>                                
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+
+                      <!-- Middle finger -->
+                      <body name="mf_base" pos="0 0 0.0007">
+                        <joint name="mfj0" class="base"/>
+                        <geom class="allegro_visual" mesh="link_0.0"/>
+                        <geom class="base_collision"/>
+                        <body name="mf_proximal" pos="0 0 0.0164">
+                          <joint name="mfj1" class="proximal"/>
+                          <geom class="allegro_visual" mesh="link_1.0"/>
+                          <geom class="proximal_collision"/>
+                          <body name="mf_medial" pos="0 0 0.054">
+                            <joint name="mfj2" class="medial"/>
+                            <geom class="allegro_visual" mesh="link_2.0"/>
+                            <geom class="medial_collision"/>
+                            <body name="mf_distal" pos="0 0 0.0384">
+                              <joint name="mfj3" class="distal"/>
+                              <geom class="allegro_visual" mesh="link_3.0"/>
+                              <geom class="distal_collision"/>
+                              <body name="mf_tip">
+                                <geom class="allegro_visual" pos="0 0 0.0267" material="allegro_white" mesh="link_3.0_tip"/>
+                                <geom class="fingertip_collision"/>
+                                <site name="mf_grasp" pos="0 0 0.029" size="0.003" rgba="0 1 0 1"/>                                
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+
+                      <!-- Ring finger -->
+                      <body name="rf_base" pos="0 -0.0435 -0.001542" quat="0.999048 0.0436194 0 0">
+                        <joint name="rfj0" class="base"/>
+                        <geom class="allegro_visual" mesh="link_0.0"/>
+                        <geom class="base_collision"/>
+                        <body name="rf_proximal" pos="0 0 0.0164">
+                          <joint name="rfj1" class="proximal"/>
+                          <geom class="allegro_visual" mesh="link_1.0"/>
+                          <geom class="proximal_collision"/>
+                          <body name="rf_medial" pos="0 0 0.054">
+                            <joint name="rfj2" class="medial"/>
+                            <geom class="allegro_visual" mesh="link_2.0"/>
+                            <geom class="medial_collision"/>
+                            <body name="rf_distal" pos="0 0 0.0384">
+                              <joint name="rfj3" class="distal"/>
+                              <geom class="allegro_visual" mesh="link_3.0"/>
+                              <geom class="distal_collision"/>
+                              <body name="rf_tip">
+                                <geom class="allegro_visual" pos="0 0 0.0267" material="allegro_white" mesh="link_3.0_tip"/>
+                                <geom class="fingertip_collision"/>
+                                <site name="rf_grasp" pos="0 0 0.029" size="0.003" rgba="0 0 1 1"/>                                
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+
+                      <!-- Thumb -->
+                      <body name="th_base" pos="-0.0182 0.019333 -0.045987" quat="0.477714 -0.521334 -0.521334 -0.477714">
+                        <joint name="thj0" class="thumb_base"/>
+                        <geom class="allegro_visual" mesh="link_12.0_right"/>
+                        <geom class="thumb_base_collision"/>
+                        <body name="th_proximal" pos="-0.027 0.005 0.0399">
+                          <joint name="thj1" class="thumb_proximal"/>
+                          <geom class="allegro_visual" mesh="link_13.0"/>
+                          <geom class="thumb_proximal_collision"/>
+                          <body name="th_medial" pos="0 0 0.0177">
+                            <joint name="thj2" class="thumb_medial"/>
+                            <geom class="allegro_visual" mesh="link_14.0"/>
+                            <geom class="thumb_medial_collision"/>
+                            <body name="th_distal" pos="0 0 0.0514">
+                              <joint name="thj3" class="thumb_distal"/>
+                              <geom class="allegro_visual" mesh="link_15.0"/>
+                              <geom class="thumb_distal_collision"/>
+                              <body name="th_tip">
+                                <geom class="allegro_visual" pos="0 0 0.0423" material="allegro_white" mesh="link_15.0_tip"/>
+                                <geom class="thumbtip_collision"/>
+                                <site name="th_grasp" pos="0 0 0.045" size="0.003" rgba="1 1 0 1"/>                                
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                    <!-- ===== END ALLEGRO ===== -->
+
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- ==================== CONTACT EXCLUSIONS ==================== -->
+  <contact>
+    <!-- Kinova adjacent links (mesh overlaps at joints) -->
+    <exclude body1="base_link" body2="shoulder_link"/>
+    <exclude body1="shoulder_link" body2="half_arm_1_link"/>
+    <exclude body1="half_arm_1_link" body2="half_arm_2_link"/>
+    <exclude body1="half_arm_2_link" body2="forearm_link"/>
+    <exclude body1="forearm_link" body2="spherical_wrist_1_link"/>
+    <exclude body1="spherical_wrist_1_link" body2="spherical_wrist_2_link"/>
+    <exclude body1="spherical_wrist_2_link" body2="bracelet_link"/>
+    <!-- Allegro internal: palm vs finger bases -->
+    <exclude body1="palm" body2="ff_base"/>
+    <exclude body1="palm" body2="mf_base"/>
+    <exclude body1="palm" body2="rf_base"/>
+    <exclude body1="palm" body2="th_base"/>
+    <exclude body1="palm" body2="th_proximal"/>
+    <!-- Bracelet vs palm (bolted together) -->
+    <exclude body1="bracelet_link" body2="palm"/>
+  </contact>
+
+  <!-- ==================== ACTUATORS ==================== -->
+  <actuator>
+    <!-- Kinova arm -->
+    <position class="large_actuator" name="act_joint_1" joint="joint_1"/>
+    <position class="large_actuator" name="act_joint_2" joint="joint_2" ctrlrange="-2.2497 2.2497"/>
+    <position class="large_actuator" name="act_joint_3" joint="joint_3"/>
+    <position class="large_actuator" name="act_joint_4" joint="joint_4" ctrlrange="-2.5796 2.5796"/>
+    <position class="small_actuator" name="act_joint_5" joint="joint_5"/>
+    <position class="small_actuator" name="act_joint_6" joint="joint_6" ctrlrange="-2.0996 2.0996"/>
+    <position class="small_actuator" name="act_joint_7" joint="joint_7"/>
+    <!-- Allegro fingers -->
+    <position name="ffa0" joint="ffj0" class="base"/>
+    <position name="ffa1" joint="ffj1" class="proximal"/>
+    <position name="ffa2" joint="ffj2" class="medial"/>
+    <position name="ffa3" joint="ffj3" class="distal"/>
+    <position name="mfa0" joint="mfj0" class="base"/>
+    <position name="mfa1" joint="mfj1" class="proximal"/>
+    <position name="mfa2" joint="mfj2" class="medial"/>
+    <position name="mfa3" joint="mfj3" class="distal"/>
+    <position name="rfa0" joint="rfj0" class="base"/>
+    <position name="rfa1" joint="rfj1" class="proximal"/>
+    <position name="rfa2" joint="rfj2" class="medial"/>
+    <position name="rfa3" joint="rfj3" class="distal"/>
+    <position name="tha0" joint="thj0" class="thumb_base"/>
+    <position name="tha1" joint="thj1" class="thumb_proximal"/>
+    <position name="tha2" joint="thj2" class="thumb_medial"/>
+    <position name="tha3" joint="thj3" class="thumb_distal"/>
+  </actuator>
+
+  <!-- ==================== KEYFRAMES ==================== -->
+  <keyframe>
+    <!-- Arm at home, fingers at travel (slightly curled) -->
+    <key name="home"
+      qpos="0 0.26 3.14 -2.27 0 0.96 1.57
+            0 0.3 0.3 0.3  0 0.3 0.3 0.3  0 0.3 0.3 0.3  0.83 0.53 0.3 0.3"
+      ctrl="0 0.26 3.14 -2.27 0 0.96 1.57
+            0 0.3 0.3 0.3  0 0.3 0.3 0.3  0 0.3 0.3 0.3  0.3 0.4 1.3 0.3"/>
+  </keyframe>
+</mujoco>

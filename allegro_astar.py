@@ -1,229 +1,25 @@
+"""
+Space-Time A* planner for individual Allegro fingers on the combined Kinova+Allegro model.
+
+Wrist is positioned via qpos[0:7] from the RRT* wrist trajectory.
+Finger joints at qpos[7:23]. Collision filtered to: this finger vs obstacles only.
+"""
 from collections import defaultdict
 
 import mujoco
 import numpy as np
 import heapq
-from scipy.spatial.transform import Rotation as R
 
-class AllegroDynamicAStar:
-    def __init__(self, xml_path, finger_type, site_name, max_step_dist, constraints=None):
-        self.model = mujoco.MjModel.from_xml_path(xml_path)
-        self.data = mujoco.MjData(self.model)
-        self.site_id = self.model.site(site_name).id
-        self.mocap_id = self.model.body_mocapid[self.model.body('palm').id]
-        self.max_step_dist = max_step_dist
-        
-        self.constraints = defaultdict(set)
+import config
 
-        if constraints:
-            for constraint in constraints:
-                if constraint["finger"] == finger_type:
-                    self.constraints[constraint["timestep"]].add(tuple(constraint["joints"]))
+SCENE_XML = config.MODEL_PATH
 
-        # Mapping for joint indices (assuming mocap palm, so joints start at 0)
-        prefix = {"thumb": "th", "first": "ff", "middle": "mf", "ring": "rf"}[finger_type]
-        self.joint_names = [f"{prefix}a{i}" for i in range(4)]
-        
-        self.limits = []
-        for name in self.joint_names:
-            act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
-            rng = self.model.actuator_ctrlrange[act_id]
-            self.limits.append((int(np.rad2deg(rng[0])+2), int(np.rad2deg(rng[1])-2)))
-
-    def set_context(self, step_idx, wrist_path, finger_q_deg):
-        """Updates the MuJoCo world to a specific time step's wrist and finger state."""
-        # 1. Set Wrist from Path
-        pos, euler = wrist_path[min(step_idx, len(wrist_path)-1)]
-        self.data.mocap_pos[self.mocap_id] = pos
-        quat = R.from_euler('xyz', euler, degrees=True).as_quat()
-        self.data.mocap_quat[self.mocap_id] = [quat[3], quat[0], quat[1], quat[2]]
-        
-        # 2. Set Fingers
-        self.data.qpos[0:4] = np.deg2rad(finger_q_deg)
-        
-        # 3. Sync Physics
-        mujoco.mj_forward(self.model, self.data)
-
-    def is_valid(self):
-        if self.data.ncon == 0:
-            return True
-        
-        for i in range(self.data.ncon):
-            contact = self.data.contact[i]
-            b1_id = self.model.geom_bodyid[contact.geom1]
-            b2_id = self.model.geom_bodyid[contact.geom2]
-            
-            if b1_id == 0 or b2_id == 0:
-                continue
-                
-            return False
-            
-        return True
-
-    def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=5000000):
-        start_node = (0, tuple(start_q))
-        self.set_context(0, wrist_path, start_q)
-        
-        pq = [(np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz)/self.max_step_dist, 0, start_node)]
-        came_from = {start_node: None}
-        g_score = {start_node: 0}
-        
-        moves = [tuple(m) for m in np.array(np.meshgrid([-1,0,1],[-1,0,1],[-1,0,1],[-1,0,1])).T.reshape(-1,4) if not np.all(m==0)]
-
-        iters = 0
-        while pq and iters < max_iters:
-            iters += 1
-            f, g, (t, curr_q) = heapq.heappop(pq)
-            
-            # Use min() to stay at the final wrist position if t exceeds path length
-            wrist_idx = min(t, len(wrist_path) - 1)
-            self.set_context(wrist_idx, wrist_path, curr_q)
-            curr_p = self.data.site_xpos[self.site_id].copy()
-            dist = np.linalg.norm(curr_p - goal_xyz)
-            
-            # --- Status Prints ---
-            if iters % 5000 == 0:
-                print(f"Iter: {iters} | Step: {t} | Dist: {dist:.4f}m", end='\n')
-
-            if dist < tolerance:
-                print(f"\nPath Found! Steps: {t} | Iters: {iters}")
-                path = []
-                curr = (t, curr_q)
-                while curr:
-                    path.append(curr)
-                    curr = came_from[curr]
-                return path[::-1]
-
-            next_t = t + 1
-            constraints = self.constraints.get(next_t)
-            for move in moves:
-                next_q = tuple(curr_q[i] + move[i] for i in range(4))
-
-                if constraints is not None and next_q in constraints:
-                    continue 
-                
-                if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1] for i in range(4)):
-                    continue
-                
-                next_node = (next_t, next_q)
-                if next_node not in g_score:
-                    # Sync physics for the next potential state
-                    w_idx = min(next_t, len(wrist_path) - 1)
-                    self.set_context(w_idx, wrist_path, next_q)
-                    
-                    if self.is_valid():
-                        g_score[next_node] = next_t
-                        weight = 5
-                        h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist * weight
-                        heapq.heappush(pq, (next_t + h, next_t, next_node))
-                        came_from[next_node] = (t, curr_q)
-                        
-        print(f"\nFailed after {iters} iterations.")
-        return None
-
-    # def plan(self, start_q, goal_xyz, wrist_path, tolerance=0.005, max_iters=5000000):
-    #     # --- 1. Dynamic Budget Setup ---
-    #     budget = len(wrist_path) - 1
-    #     epsilon = 0.001  # Tiny weight for the tie-breaker
-        
-    #     start_node = (0, tuple(start_q))
-    #     self.set_context(0, wrist_path, start_q)
-        
-    #     # Initial distance and f_score
-    #     h_start = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
-    #     f_start = (epsilon * 0) + h_start # Initial t=0 is always within budget
-        
-    #     pq = [(f_start, 0, start_node)]
-    #     came_from = {start_node: None}
-    #     g_score = {start_node: 0}
-        
-    #     # Include (0,0,0,0) so the finger can 'wait' while the wrist moves
-    #     moves = [tuple(m) for m in np.array(np.meshgrid([-1,0,1],[-1,0,1],[-1,0,1],[-1,0,1])).T.reshape(-1,4)]
-
-    #     iters = 0
-    #     while pq and iters < max_iters:
-    #         iters += 1
-    #         f, g, (t, curr_q) = heapq.heappop(pq)
-            
-    #         wrist_idx = min(t, budget)
-    #         self.set_context(wrist_idx, wrist_path, curr_q)
-    #         curr_p = self.data.site_xpos[self.site_id].copy()
-    #         dist = np.linalg.norm(curr_p - goal_xyz)
-            
-    #         if iters % 10000 == 0:
-    #             print(f"Iter: {iters} | Step: {t} | Dist: {dist:.4f}m", end='\n')
-
-    #         if dist < tolerance:
-    #             print(f"\nPath Found! Steps: {t} | Iters: {iters}")
-    #             path = []
-    #             curr = (t, curr_q)
-    #             while curr:
-    #                 path.append(curr)
-    #                 curr = came_from[curr]
-    #             return path[::-1]
-
-    #         next_t = t + 1
-    #         constraints = self.constraints.get(next_t)
-            
-    #         for move in moves:
-    #             next_q = tuple(curr_q[i] + move[i] for i in range(4))
-
-    #             if constraints is not None and next_q in constraints:
-    #                 continue 
-                
-    #             if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1] for i in range(4)):
-    #                 continue
-                
-    #             next_node = (next_t, next_q)
-    #             if next_node not in g_score:
-    #                 w_idx = min(next_t, budget)
-    #                 self.set_context(w_idx, wrist_path, next_q)
-                    
-    #                 if self.is_valid():
-    #                     g_score[next_node] = next_t
-    #                     h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
-                        
-    #                     # --- 2. THE BIG BRAIN GEAR SHIFT ---
-    #                     if next_t <= budget:
-    #                         # Phase 1: Budgeted Greedy with tie-breaker
-    #                         f_next = (epsilon * next_t) + h
-    #                     else:
-    #                         # Phase 2: Optimal A* (penalizing every step after budget)
-    #                         # (epsilon * budget) maintains a smooth transition in the PQ
-    #                         f_next = (next_t - budget) + (epsilon * budget) + h
-                        
-    #                     heapq.heappush(pq, (f_next, next_t, next_node))
-    #                     came_from[next_node] = (t, curr_q)
-        
-    #     print(f"\nFailed after {iters} iterations.")
-    #     return None
-
-# --- Main Configuration ---
-def generate_wrist_path(start_pos, end_pos, start_euler, end_euler, duration, dt=0.1):
-    steps = int(duration / dt)
-    path = []
-    
-    for i in range(steps + 1):
-        # Calculate interpolation factor (0.0 to 1.0)
-        t = i / steps
-        
-        # Linearly interpolate position: P = P0 + t * (P1 - P0)
-        current_pos = [
-            start_pos[0] + t * (end_pos[0] - start_pos[0]),
-            start_pos[1] + t * (end_pos[1] - start_pos[1]),
-            start_pos[2] + t * (end_pos[2] - start_pos[2])
-        ]
-        
-        # Linearly interpolate euler angles
-        current_euler = [
-            start_euler[0] + t * (end_euler[0] - start_euler[0]),
-            start_euler[1] + t * (end_euler[1] - start_euler[1]),
-            start_euler[2] + t * (end_euler[2] - start_euler[2])
-        ]
-        
-        path.append((current_pos, current_euler))
-    
-    return path
+SITE_NAMES = {
+    "thumb": "th_grasp",
+    "first": "ff_grasp",
+    "middle": "mf_grasp",
+    "ring": "rf_grasp",
+}
 
 MAX_STEP_DICT = {
     "thumb": 0.0013,
@@ -232,41 +28,158 @@ MAX_STEP_DICT = {
     "ring": 0.00165,
 }
 
-XML_PATHS = {
-    "thumb": r'.\wonik_allegro\left_hand_thumb.xml',
-    "first": r'.\wonik_allegro\left_hand_first.xml',
-    "middle": r'.\wonik_allegro\left_hand_middle.xml',
-    "ring": r'.\wonik_allegro\left_hand_ring.xml',
-    "thumb_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_thumb_obstacle.xml',
-    "first_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_first_obstacle.xml',
-    "middle_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_middle_obstacle.xml',
-    "ring_obs": r'.\wonik_allegro\obstacle_ex1\left_hand_ring_obstacle.xml',
-    "thumb_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_thumb.xml',
-    "first_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_first.xml',
-    "middle_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_middle.xml',
-    "ring_closed_grab": r'.\wonik_allegro\closed_grab\left_hand_closed_grab_ring.xml',
-    "thumb_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_thumb.xml',
-    "first_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_first.xml',
-    "middle_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_middle.xml',
-    "ring_doorknob": r'.\wonik_allegro\doorknob\left_hand_doorknob_ring.xml',
+FINGER_QPOS_SLICES = {
+    "first":  slice(7, 11),
+    "middle": slice(11, 15),
+    "ring":   slice(15, 19),
+    "thumb":  slice(19, 23),
 }
 
-SITE_NAMES = {
-    "thumb": "th_grasp",
-    "first": "ff_grasp",
-    "middle": "mf_grasp",
-    "ring": "rf_grasp"
+FINGER_BODY_NAMES = {
+    "first":  ["ff_base", "ff_proximal", "ff_medial", "ff_distal", "ff_tip"],
+    "middle": ["mf_base", "mf_proximal", "mf_medial", "mf_distal", "mf_tip"],
+    "ring":   ["rf_base", "rf_proximal", "rf_medial", "rf_distal", "rf_tip"],
+    "thumb":  ["th_base", "th_proximal", "th_medial", "th_distal", "th_tip"],
 }
 
-# # Example: Planning for the Ring Finger
-# finger = "ring"
-# xml_finger = f"{finger}_obs" 
-# planner = AllegroDynamicAStar(
-#     xml_path=xml_paths[xml_finger],
-#     finger_type=finger,
-#     site_name=site_names[finger],
-#     max_step_dist=max_step_dict[finger],
-#     constraints=[{"finger": finger, "timestep": 10, "joints": (10, 10, 10, 10)},
-#                  {"finger": finger, "timestep": 53, "joints": (16, 53, 53, 53)},
-#                  {"finger": finger, "timestep": 58, "joints": (16, 58, 58, 49)}]
-# )
+ACTUATOR_PREFIXES = {
+    "first": "ff",
+    "middle": "mf",
+    "ring": "rf",
+    "thumb": "th",
+}
+
+
+class AllegroDynamicAStar:
+    def __init__(self, finger_type, site_name=None, max_step_dist=None,
+                 constraints=None, xml_path=None):
+        xml = xml_path or SCENE_XML
+        self.model = mujoco.MjModel.from_xml_path(xml)
+        self.data = mujoco.MjData(self.model)
+        self.finger_type = finger_type
+
+        site = site_name or SITE_NAMES[finger_type]
+        self.site_id = self.model.site(site).id
+        self.max_step_dist = max_step_dist or MAX_STEP_DICT[finger_type]
+        self.finger_slice = FINGER_QPOS_SLICES[finger_type]
+
+        # Build collision filter: this finger's geoms vs obstacle+floor geoms
+        finger_body_ids = set()
+        for bname in FINGER_BODY_NAMES[finger_type]:
+            finger_body_ids.add(self.model.body(bname).id)
+
+        self.finger_geom_ids = set()
+        self.obstacle_geom_ids = set()
+        floor_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+
+        for gi in range(self.model.ngeom):
+            ct = self.model.geom(gi).contype[0]
+            body_id = self.model.geom(gi).bodyid[0]
+            if body_id in finger_body_ids and ct > 0:
+                self.finger_geom_ids.add(gi)
+            if ct == 4:
+                self.obstacle_geom_ids.add(gi)
+
+        if floor_id >= 0:
+            self.obstacle_geom_ids.add(floor_id)
+
+        # Joint limits with 2° buffer (integer degrees)
+        prefix = ACTUATOR_PREFIXES[finger_type]
+        act_names = [f"{prefix}a{i}" for i in range(4)]
+        self.limits = []
+        for name in act_names:
+            act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+            rng = self.model.actuator_ctrlrange[act_id]
+            self.limits.append((int(np.rad2deg(rng[0]) + 2), int(np.rad2deg(rng[1]) - 2)))
+
+        # CBS constraints
+        self.constraints = defaultdict(set)
+        if constraints:
+            for c in constraints:
+                if c["finger"] == finger_type:
+                    self.constraints[c["timestep"]].add(tuple(c["joints"]))
+
+        # Moves: all 1° steps in 4D INCLUDING wait (zero-move)
+        self._moves = [tuple(m) for m in
+                       np.array(np.meshgrid([-1, 0, 1], [-1, 0, 1], [-1, 0, 1], [-1, 0, 1]))
+                       .T.reshape(-1, 4)]
+
+    def set_context(self, step_idx, wrist_traj, finger_q_deg):
+        w_idx = min(step_idx, len(wrist_traj) - 1)
+        self.data.qpos[0:7] = wrist_traj[w_idx]
+        self.data.qpos[7:23] = config.FINGER_TRAVEL_POSE
+        self.data.qpos[self.finger_slice] = np.deg2rad(finger_q_deg)
+        mujoco.mj_fwdPosition(self.model, self.data)
+
+    def is_valid(self):
+        for i in range(self.data.ncon):
+            contact = self.data.contact[i]
+            g1, g2 = contact.geom1, contact.geom2
+            finger_hit = (g1 in self.finger_geom_ids or g2 in self.finger_geom_ids)
+            obstacle_hit = (g1 in self.obstacle_geom_ids or g2 in self.obstacle_geom_ids)
+            if finger_hit and obstacle_hit:
+                return False
+        return True
+
+    def plan(self, start_q, goal_xyz, wrist_traj,
+             tolerance=None, max_iters=None, heuristic_weight=None):
+        tolerance = tolerance or config.FINGER_TOLERANCE
+        max_iters = max_iters or config.FINGER_MAX_ITERS
+        weight = heuristic_weight or config.FINGER_HEURISTIC_WEIGHT
+
+        goal_xyz = np.asarray(goal_xyz)
+        start_node = (0, tuple(start_q))
+
+        self.set_context(0, wrist_traj, start_q)
+        h0 = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) / self.max_step_dist
+
+        pq = [(h0, 0, start_node)]
+        came_from = {start_node: None}
+        g_score = {start_node: 0}
+
+        iters = 0
+        while pq and iters < max_iters:
+            iters += 1
+            f, g, (t, curr_q) = heapq.heappop(pq)
+
+            self.set_context(t, wrist_traj, curr_q)
+            curr_p = self.data.site_xpos[self.site_id].copy()
+            dist = np.linalg.norm(curr_p - goal_xyz)
+
+            if iters % 5000 == 0:
+                print(f"  [{self.finger_type}] iter={iters} step={t} dist={dist:.4f}m")
+
+            if dist < tolerance:
+                print(f"  [{self.finger_type}] path found! steps={t} iters={iters}")
+                path = []
+                curr = (t, curr_q)
+                while curr:
+                    path.append(curr)
+                    curr = came_from[curr]
+                return path[::-1]
+
+            next_t = t + 1
+            forbidden = self.constraints.get(next_t)
+
+            for move in self._moves:
+                next_q = tuple(curr_q[i] + move[i] for i in range(4))
+
+                if forbidden is not None and next_q in forbidden:
+                    continue
+
+                if any(next_q[i] < self.limits[i][0] or next_q[i] > self.limits[i][1]
+                       for i in range(4)):
+                    continue
+
+                next_node = (next_t, next_q)
+                if next_node not in g_score:
+                    self.set_context(next_t, wrist_traj, next_q)
+                    if self.is_valid():
+                        g_score[next_node] = next_t
+                        h = np.linalg.norm(self.data.site_xpos[self.site_id] - goal_xyz) \
+                            / self.max_step_dist * weight
+                        heapq.heappush(pq, (next_t + h, next_t, next_node))
+                        came_from[next_node] = (t, curr_q)
+
+        print(f"  [{self.finger_type}] failed after {iters} iterations")
+        return None
